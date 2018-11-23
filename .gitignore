@@ -1,2 +1,3 @@
 *.swp
 dataset/*
+.vscode/*

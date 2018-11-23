@@ -4,7 +4,6 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 
-from sklearn.model_selection import train_test_split
 import pandas as pd
 import numpy as np
 import os
@@ -34,18 +33,16 @@ class CustomDataset(Dataset):
 
         self.x_data = torch.from_numpy(xyMatrix[:, 0:-1])
         self.y_data = torch.from_numpy(xyMatrix[:, [-1]])
-        print(self.x_data.shape, self.y_data.shape)
         self.x_data = self.x_data.view(-1, 1, 128)
-        self.x_Data = self.y_data.view(-1, 1, 1)
-        print(self.x_data.shape, self.y_data.shape)
-
+        self.y_data = self.y_data.view(-1).long()
+     
     def __getitem__(self, index):
         return self.x_data[index], self.y_data[index]
     
     def __len__(self):
         return self.len
 
-print("Data Preprocessing...")
+print("\nData Preprocessing...")
 train_dataset = CustomDataset(train_path)
 test_dataset = CustomDataset(test_path)
 
@@ -55,16 +52,15 @@ train_loader = DataLoader(dataset=train_dataset,
 test_loader = DataLoader(dataset=test_dataset,
                          batch_size=config.batch_size,
                          shuffle=True)
-print("Complete")
+print("Complete\n")
         
-
 
 class Model(nn.Module):
     def __init__(self, input_channels, nb_classes):
         super(Model, self).__init__()
         # Input Size : 1x128
         self.conv = nn.Sequential(
-            nn.Conv1d(input_channels, 8, kernel_size=3),
+            nn.Conv1d(1, 8, kernel_size=3),
             nn.BatchNorm1d(8),
             nn.ReLU(),
             nn.Conv1d(8, 16, kernel_size=3),
@@ -76,12 +72,13 @@ class Model(nn.Module):
         )
         self.fc = nn.Sequential(
             nn.Dropout(0.5),
-            nn.Linear(1000, nb_classes)
+            nn.Linear(32*122, 128),
+            nn.Linear(128, nb_classes)
         )
     
     def forward(self, x):
         out = self.conv(x)
-        print(out.shape)
+        out = out.reshape(out.size(0), -1)
         out = self.fc(out)
         
         return out
@@ -93,6 +90,8 @@ criterion = nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
 
 total_step = len(train_loader)
+
+print("Start Learning")
 for epoch in range(config.num_epoch):
     for idx, (images, labels) in enumerate(train_loader):
         images = images.to(device)
@@ -107,6 +106,7 @@ for epoch in range(config.num_epoch):
 
         if (idx+1) % 100 == 0:
             print("Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}".format(epoch+1, config.num_epoch, idx+1, total_step, loss.item()))
+print("End Learning")
 
 model.eval()
 with torch.no_grad():
